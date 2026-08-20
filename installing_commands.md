@@ -18,3 +18,7 @@ accessToken = memory (access token stores in cookies)
 refreshToken = cookies (refresh token stores in cookies)
 so to store in cookies we have to install a package
 "npm i cookie-parser" 
+
+
+We have to install "nodemailer" to send otp through email for otp verification...
+"npm install nodemailer" 

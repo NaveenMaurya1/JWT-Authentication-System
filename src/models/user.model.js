@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { type } from "os";
 
 const userSchema = new mongoose.Schema({
     username:{
@@ -14,7 +15,12 @@ const userSchema = new mongoose.Schema({
     password:{
         type:String,
         required:[true,"Username is reuired"]
+    },
+    verfied:{//it's for otp verification
+       type:Boolean,
+       default: false  
     }
+        
 })
 
 const userModel = mongoose.model("user",userSchema)

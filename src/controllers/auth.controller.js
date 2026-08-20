@@ -3,6 +3,10 @@ import crypto from "crypto"   //  this is inbulit package in Node.js which used 
 import jwt from "jsonwebtoken";
 import config from "../config/config.js";
 import sessionModel from "../models/session.model.js";
+import { sendEmail } from "../service/email.service.js";
+import { generateOtp } from "../utils/utils.js";
+import { getOtpHtml } from "../utils/utils.js";
+import otpModel from "../models/otp.model.js";
 
 export async function Register(req, res) {
 
@@ -30,45 +34,65 @@ export async function Register(req, res) {
         password: hashedPassword
     })
 
-    const refreshToken = jwt.sign({
-        id: user._id
-    }, config.JWT_SECRET,
-        {
-            expiresIn: "7d"
-        })
-
-    const refreshTokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex")
-
-    const session = await sessionModel.create({
-        user: user._id,
-        refreshToken: refreshTokenHash,
-        ip: req.ip,
-        userAgent: req.headers["user-agent"]
-    })
-
-    const accessToken = jwt.sign({
-        id: user._id,
-        session: session._id
-    }, config.JWT_SECRET,
-        {
-            expiresIn: "15m"
-        })
+    
 
 
-    res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: false,
-        sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000 // max 7days
-    })
+
+
+// we don't need that code while using opt verification 
+
+    // const refreshToken = jwt.sign({
+    //     id: user._id
+    // }, config.JWT_SECRET,
+    //     {
+    //         expiresIn: "7d"
+    //     })
+
+    // const refreshTokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex")
+
+    // const session = await sessionModel.create({
+    //     user: user._id,
+    //     refreshToken: refreshTokenHash,
+    //     ip: req.ip,
+    //     userAgent: req.headers["user-agent"]
+    // })
+
+    // const accessToken = jwt.sign({
+    //     id: user._id,
+    //     session: session._id
+    // }, config.JWT_SECRET,
+    //     {
+    //         expiresIn: "15m"
+    //     })
+
+
+    // res.cookie("refreshToken", refreshToken, {
+    //     httpOnly: true,
+    //     secure: false,
+    //     sameSite: "strict",
+    //     maxAge: 7 * 24 * 60 * 60 * 1000 // max 7days
+    // })
+
+    const otp = generateOtp()
+    const html = getOtpHtml(otp)
+
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex")
+    await otpModel.create({
+        email,
+        user:user._id,
+        otpHash
+    }) 
+
+    await sendEmail(email,"OTP Verification", `Your OTP code is ${otp}`, html)
 
     res.status(201).json({
         message: "User registered successfully",
         user: {
             username: user.username,
             email: user.email,
+            verified:user.verfied,
         },
-        accessToken
+        // accessToken
     })
 
 }
@@ -80,6 +104,12 @@ export async function login(req, res) {
     if (!user) {
         return res.status(401).json({
             message: "Invalid email or password"
+        })
+    }
+     
+    if (!user.verified) {   // this will help to not generate access and refresh token untill user is verified
+        return res.status(401).json({
+            message:"Email not verified"
         })
     }
 
@@ -257,4 +287,39 @@ export async function logoutAll(req, res) {     // it log out from all devies by
         message: "Logged out from all devices successfully"
     })
 
+}
+
+export async function verifyEmail(req,res) {
+    const {otp,email} = req.body
+
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex")
+
+    const otpDoc = await otpModel.findOne({
+        email,
+        otpHash
+    })
+
+    if(otpDoc){
+        return res.status(400).json({
+            message:"Invalid OTP"
+        })
+    }
+
+    const user =  await userModel.findByIdAndUpdate(otpDoc.user,{
+        verfied:true
+    })
+
+    await otpModel.deleteMany({
+        user: otpDoc.user
+    })
+    
+
+    return res.status(200).json({
+        message:"Email verified succesfully",
+        user:{
+            username: user.username,
+            email: user.email,
+            verified: user.verfied 
+        }
+    })
 }

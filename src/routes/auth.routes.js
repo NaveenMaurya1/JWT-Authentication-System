@@ -21,4 +21,7 @@ authRouter.get("/logout",authController.logout)
 //  Get /api/auth/logout-all
 authRouter.get("/logout-all",authController.logoutAll)
 
+//  Get /api/auth/verify-email
+authRouter.get("/verify-email",authController.verifyEmail)
+
 export default authRouter
