@@ -7,4 +7,4 @@ async function connectDB(){
     console.log("Database Connected")
 }
 
-export default connectDB
+export default connectDB 
